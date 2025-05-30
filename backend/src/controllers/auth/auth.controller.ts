@@ -1,21 +1,42 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/client';
 import {error} from 'console';
 
+const registerSchema = z.object({
+    username: z.string().min(3).max(30),
+    email: z.string().email(),
+    password: z.string().min(8),
+});
+
 export const registerUser = async (req: Request, res: Response) => {
-    console.log('Incoming body:', req.body);
+    // console.log('Incoming body:', req.body);
 
-    const { username, email, password } = req.body;
+    // const { username, email, password } = req.body;
 
-    console.log('Registering user:', { username, email, password, role: 'user' });
+    // console.log('Registering user:', { username, email, password, role: 'user' });
 
     // Insecure logic: no input validation, no hashing
     try {
+        const { username, email, password } = registerSchema.parse(req.body);
+
+        const existing = await prisma.user.findFirst({
+            where: { OR: [{ email }, { username }] },
+        });
+
+        if (existing) {
+            return res.status(409).json({ error: 'user already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+
         const user = await prisma.user.create({
             data: {
                 username,
                 email,
-                password,
+                password: hashedPassword,
                 role: 'user'
             },
         });
