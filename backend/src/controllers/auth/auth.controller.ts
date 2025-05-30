@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../prisma/client';
+import {error} from 'console';
 
 export const registerUser = async (req: Request, res: Response) => {
     console.log('Incoming body:', req.body);
@@ -40,7 +41,8 @@ export const registerUser = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Prisma error:', error);
-        res.status(400).json({ error: 'Unable to create user', details: (error as any).message });
+        // res.status(400).json({ error: 'Unable to create user', details: (error as any).message });
+        res.status(400).json({ error: 'Unable to create user', details: error });
     }
 };
 
@@ -72,7 +74,8 @@ export const loginUser = async (req: Request, res: Response) => {
         res.json({ message: 'Login successful', token: `user-${user.id}`, role: user.role });
     } catch (error) {
         console.error('Login error', error);
-        res.status(500).json({ error: 'Login failed', details: (error as any).message });
+        // res.status(500).json({ error: 'Login failed', details: (error as any).message });
+        res.status(401).json({ error: 'Login failed', details: error });
     }
 };
 
@@ -104,7 +107,8 @@ export const getCurrentUser = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Get current user error:', error);
-        res.status(500).json({ error: 'Failed to fetch current user', details: (error as any).message});
+        // res.status(500).json({ error: 'Failed to fetch current user', details: (error as any).message});
+        res.status(401).json({ error: 'Failed to fetch current user', details: error });
     }
 };
 
@@ -179,7 +183,8 @@ export const resetPassword = async (req: Request, res: Response) => {
         res.json({ message: 'Password reset successful', user: updated });
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({ error: 'Failed to reset password', details: (error as any).message });
+        // res.status(500).json({ error: 'Failed to reset password', details: (error as any).message });
+        res.status(401).json({ error: 'Failed to reset password.', details: error });
     }
 };
 
@@ -199,6 +204,7 @@ export const listLogs = async (req: Request, res: Response) => {
         res.json({ logs });
     } catch (error) {
         console.error('List logs error:', error);
-        res.status(500).json({ error: 'Failed to fetch logs', details: (error as any).message });
+        // res.status(500).json({ error: 'Failed to fetch logs', details: (error as any).message });
+        res.status(401).json({ error: 'Failed to fetch logs.', details: error });
     }
 };
