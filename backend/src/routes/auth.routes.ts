@@ -1,20 +1,23 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import asyncHandler from 'express-async-handler'
+import { wrapMiddleware } from '../utils/wrapMiddleware';
+import { requireAdmin, requireAuth } from '../middleware/auth.middleware';
 import { registerUser, loginUser, getCurrentUser, refreshToken, requestPasswordReset, resetPassword, listUsers, listLogs } from '../controllers/auth/auth.controller';
 
 const router = Router();
 
-// Helper function to handle async route handlers in Express 5
-const asyncHandler = (fn: any) => (req: Request, res: Response, next: NextFunction) => {
-  return Promise.resolve(fn(req, res, next)).catch(next);
-};
-
+// Public routes
 router.post('/register', asyncHandler(registerUser));
 router.post('/login', asyncHandler(loginUser));
-router.get('/me', asyncHandler(getCurrentUser));
 router.post('/refresh', refreshToken);
 router.post('/request-password-reset', asyncHandler(requestPasswordReset));
 router.post('/reset-password', asyncHandler(resetPassword));
-router.get('/admin/users', asyncHandler(listUsers));
-router.get('/admin/logs', asyncHandler(listLogs));
+
+// Authenticated user route
+router.get('/me', wrapMiddleware(requireAuth), asyncHandler(getCurrentUser));
+
+// Admin-only routes
+router.get('/admin/users', wrapMiddleware(requireAuth), wrapMiddleware(requireAdmin), asyncHandler(listUsers));
+router.get('/admin/logs', wrapMiddleware(requireAuth), wrapMiddleware(requireAdmin), asyncHandler(listLogs));
 
 export default router;

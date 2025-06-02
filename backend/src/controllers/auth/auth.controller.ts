@@ -11,14 +11,7 @@ const registerSchema = z.object({
     password: z.string().min(8),
 });
 
-export const registerUser = async (req: Request, res: Response) => {
-    // console.log('Incoming body:', req.body);
-
-    // const { username, email, password } = req.body;
-
-    // console.log('Registering user:', { username, email, password, role: 'user' });
-
-    // Insecure logic: no input validation, no hashing
+export const registerUser = async (req: Request, res: Response): Promise<void> => {
     try {
         const { username, email, password } = registerSchema.parse(req.body);
 
@@ -27,7 +20,8 @@ export const registerUser = async (req: Request, res: Response) => {
         });
 
         if (existing) {
-            return res.status(409).json({ error: 'user already exists' });
+            res.status(409).json({ error: 'user already exists' });
+            return;
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
@@ -47,8 +41,6 @@ export const registerUser = async (req: Request, res: Response) => {
             },
         });
 
-        // Auto generate fake token
-        // const token = `user-${user.id}`;
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET!, {expiresIn: '1h' });
 
         res.status(201).json({
@@ -68,7 +60,7 @@ export const registerUser = async (req: Request, res: Response) => {
     }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response): Promise<void> => {
     const { username, password } = req.body;
 
     try {
@@ -83,7 +75,8 @@ export const loginUser = async (req: Request, res: Response) => {
                 },
             });
 
-            return res.status(401).json({ error: 'Invalid username or password' });
+            res.status(401).json({ error: 'Invalid username or password' });
+            return;
         }
 
         await prisma.log.create({
@@ -110,24 +103,24 @@ export const loginUser = async (req: Request, res: Response) => {
     }
 };
 
-export const getCurrentUser = async (req: Request, res: Response) => {
+export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer user-')) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const userPayload = (req as any).user;
 
-    const userId = parseInt(authHeader.replace('Bearer user-', ''));
-
-    if (isNaN(userId)) {
-        return res.status(401).json({ error: 'Invalid token format' });
+    if (!userPayload || !userPayload.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
     }
 
     try {
-        const user  = await prisma.user.findUnique({ where: { id: userId }});
+        const user = await prisma.user.findUnique({
+            where: { id: userPayload.id },
+        });
 
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            res.status(404).json({ error: 'User not found' });
+            return;
         }
 
         res.json({
@@ -138,8 +131,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Get current user error:', error);
-        // res.status(500).json({ error: 'Failed to fetch current user', details: (error as any).message});
-        res.status(401).json({ error: 'Failed to fetch current user', details: error });
+        res.status(500).json({ error: 'Failed to fetch user.' });
     }
 };
 
