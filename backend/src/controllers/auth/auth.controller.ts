@@ -48,7 +48,8 @@ export const registerUser = async (req: Request, res: Response) => {
         });
 
         // Auto generate fake token
-        const token = `user-${user.id}`;
+        // const token = `user-${user.id}`;
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET!, {expiresIn: '1h' });
 
         res.status(201).json({
             message: 'User created',
