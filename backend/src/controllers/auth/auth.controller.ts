@@ -4,6 +4,7 @@ import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/client';
 import { comparePassword, generateToken } from '../../utils/auth.utils';
+import { validateRefreshToken, rotateRefreshToken, generateAccessToken, generateRefreshToken } from '../../utils/token.utils';
 
 const registerSchema = z.object({
     username: z.string().min(3).max(30),
@@ -85,11 +86,13 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
             },
         });
 
-        const token = generateToken({ id: user.id, role: user.role });
+        const accessToken = generateAccessToken({ id: user.id, role: user.role });
+        const refreshToken = await generateRefreshToken(user.id);
 
         res.json({
             message: 'Login successful',
-            token,
+            accessToken,
+            refreshToken,
             user: {
                 id: user.id,
                 username: user.username,
@@ -143,16 +146,31 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 // -- blacklisting on logout
 // -- storing in HTTP-only cookies
 
-export const refreshToken = (req: Request, res: Response) => {
+export const refreshToken = async (req: Request, res: Response): Promise<void> => {
     const { token } = req.body;
 
-    if (token !== 'fake-jwt-token') {
-        res.status(401).json({ error: 'Invalid refresh token' });
+    if (!token) {
+        res.status(400).json({ error: 'Refresh token is required.' });
         return;
     }
 
-    res.json({ token: 'fake-jwt-token-refreshed' });
+    const user = await validateRefreshToken(token);
+
+    if (!user) {
+        res.status(401).json({ error: 'Invalid or expired refresh token.' });
+        return;
+    }
+
+    const newAccessToken = generateAccessToken({ id: user.id, role: user.role });
+    const newRefreshToken = await rotateRefreshToken(token, user.id);
+
+    res.json({
+        accesstoken: newAccessToken,
+        refreshToken: newRefreshToken,
+    });
 };
+
+
 
 export const requestPasswordReset = async (req: Request, res: Response) => {
     const { email } = req.body;
