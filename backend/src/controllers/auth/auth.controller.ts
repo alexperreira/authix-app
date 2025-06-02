@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/client';
-import {error} from 'console';
+import { comparePassword, generateToken } from '../../utils/auth.utils';
 
 const registerSchema = z.object({
     username: z.string().min(3).max(30),
@@ -76,15 +76,14 @@ export const loginUser = async (req: Request, res: Response) => {
             where: { username },
         });
 
-        if (!user || user.password !== password) {
+        if (!user || !(await comparePassword(password, user.password))) {
             await prisma.log.create({
                 data: {
                     event: `Failed login attempt for: ${username}`,
                 },
             });
 
-            res.status(401).json({ error: 'Invalid username or password' });
-            return;
+            return res.status(401).json({ error: 'Invalid username or password' });
         }
 
         await prisma.log.create({
@@ -93,11 +92,21 @@ export const loginUser = async (req: Request, res: Response) => {
             },
         });
 
-        res.json({ message: 'Login successful', token: `user-${user.id}`, role: user.role });
+        const token = generateToken({ id: user.id, role: user.role });
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+            },
+        });
     } catch (error) {
         console.error('Login error', error);
-        // res.status(500).json({ error: 'Login failed', details: (error as any).message });
-        res.status(401).json({ error: 'Login failed', details: error });
+        res.status(500).json({ error: 'Login failed' });
     }
 };
 
