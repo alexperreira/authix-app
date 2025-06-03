@@ -73,9 +73,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
         if (!user || !(await comparePassword(password, user.password))) {
             await prisma.log.create({
-                data: {
-                    event: `Failed login attempt for: ${username}`,
-                },
+                data: { event: `Failed login attempt for: ${username}.` },
             });
 
             res.status(401).json({ error: 'Invalid username or password' });
@@ -83,25 +81,29 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         }
 
         await prisma.log.create({
-            data: {
-                event: `Successful login for: ${username}`,
-            },
+            data: { event: `Successful login for: ${username}.` },
         });
 
         const accessToken = generateAccessToken({ id: user.id, role: user.role });
         const refreshToken = await generateRefreshToken(user.id);
 
-        res.json({
-            message: 'Login successful',
-            accessToken,
-            refreshToken,
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-            },
-        });
+        res
+            .cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 6 * 24 * 60 * 60 * 1000, // 7 days
+            })
+            .json({
+                message: 'Login successful',
+                accessToken,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                },
+            });
     } catch (error) {
         console.error('Login error', error);
         res.status(500).json({ error: 'Login failed' });
@@ -149,7 +151,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 // -- storing in HTTP-only cookies
 
 export const refreshToken = async (req: Request, res: Response): Promise<void> => {
-    const { token } = req.body;
+    const token = req.cookies.refreshToken;
 
     if (!token) {
         res.status(400).json({ error: 'Refresh token is required.' });
@@ -166,10 +168,14 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     const newAccessToken = generateAccessToken({ id: user.id, role: user.role });
     const newRefreshToken = await rotateRefreshToken(token, user.id);
 
-    res.json({
-        accesstoken: newAccessToken,
-        refreshToken: newRefreshToken,
-    });
+    res
+        .cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        })
+        .json({ accessToken: newAccessToken });
 };
 
 
@@ -274,7 +280,7 @@ export const listLogs = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logoutUser = async (req: Request, res: Response): Promise<void> => {
-    const { token } = req.body;
+    const token = req.cookies.refreshToken;
 
     if (!token) {
         res.status(400).json({ error: 'Refresh token is required for logout.' });
@@ -286,7 +292,15 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
             where: { token },
         });
 
-        res.json({ message: 'Logged out successfully' });
+        res
+            .clearCookie('refreshToken', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+        })
+
+            .json({ message: 'Logged out successfully' });
+
     } catch (error) {
         console.error('Logout error:', error);
         res.status(400).json({ error: 'Token not found or already invalidated' });
