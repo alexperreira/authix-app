@@ -3,12 +3,19 @@ import asyncHandler from 'express-async-handler'
 import { wrapMiddleware } from '../utils/wrapMiddleware';
 import { requireAdmin, requireAuth } from '../middleware/auth.middleware';
 import { registerUser, loginUser, getCurrentUser, refreshToken, requestPasswordReset, resetPassword, listUsers, listLogs, logoutUser, logoutAllSessions } from '../controllers/auth/auth.controller';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
+const loginLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 5,
+    message: 'Too many login attempts, please try again later.',
+});
+
 // Public routes
 router.post('/register', asyncHandler(registerUser));
-router.post('/login', asyncHandler(loginUser));
+router.post('/login', loginLimiter, asyncHandler(loginUser));
 router.post('/refresh', asyncHandler(refreshToken));
 router.post('/request-password-reset', asyncHandler(requestPasswordReset));
 router.post('/reset-password', asyncHandler(resetPassword));
