@@ -307,3 +307,29 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
     }
 
 }
+
+export const logoutAllSessions = async (req: Request, res: Response): Promise<void> => {
+    const userPayload = (req as any).user;
+
+    if (!userPayload || !userPayload.id) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    try {
+        await prisma.refreshToken.deleteMany({
+            where: { userId: userPayload.id },
+        });
+
+        res
+            .clearCookie('refreskToken', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+            })
+            .json({ message: 'All sessions revoked.' });
+    } catch (error) {
+        console.error('Logout all error: ', error);
+        res.status(500).json({ error: 'Failed to revoke sessions.' });
+    }
+}

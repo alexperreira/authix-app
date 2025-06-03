@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction, RequestHandler } from 'express
 import asyncHandler from 'express-async-handler'
 import { wrapMiddleware } from '../utils/wrapMiddleware';
 import { requireAdmin, requireAuth } from '../middleware/auth.middleware';
-import { registerUser, loginUser, getCurrentUser, refreshToken, requestPasswordReset, resetPassword, listUsers, listLogs, logoutUser } from '../controllers/auth/auth.controller';
+import { registerUser, loginUser, getCurrentUser, refreshToken, requestPasswordReset, resetPassword, listUsers, listLogs, logoutUser, logoutAllSessions } from '../controllers/auth/auth.controller';
 
 const router = Router();
 
@@ -16,6 +16,7 @@ router.post('/reset-password', asyncHandler(resetPassword));
 // Authenticated user route
 router.get('/me', wrapMiddleware(requireAuth), asyncHandler(getCurrentUser));
 router.get('/logout', asyncHandler(logoutUser));
+router.post('/logout-all', wrapMiddleware(requireAuth), asyncHandler(logoutAllSessions));
 
 
 // Admin-only routes
