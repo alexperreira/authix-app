@@ -9,7 +9,7 @@ const router = Router();
 // Public routes
 router.post('/register', asyncHandler(registerUser));
 router.post('/login', asyncHandler(loginUser));
-router.post('/refresh', refreshToken);
+router.post('/refresh', asyncHandler(refreshToken));
 router.post('/request-password-reset', asyncHandler(requestPasswordReset));
 router.post('/reset-password', asyncHandler(resetPassword));
 

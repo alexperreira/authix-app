@@ -153,11 +153,12 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 // -- storing in HTTP-only cookies
 
 export const refreshToken = async (req: Request, res: Response): Promise<void> => {
-    const token = req.cookies.refreshToken;
+    try {
+        const token = req.cookies?.refreshToken;
 
-    if (!token) {
-        res.status(400).json({ error: 'Refresh token is required.' });
-        return;
+        if (!token) {
+            res.status(400).json({ error: 'Refresh token is required.' });
+            return;
     }
 
     const user = await validateRefreshToken(token);
@@ -178,6 +179,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
             maxAge: 7 * 24 * 60 * 60 * 1000,
         })
         .json({ accessToken: newAccessToken });
+    } catch (error) {
+        console.error('Refresh token error: ', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
 };
 
 
