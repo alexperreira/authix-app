@@ -8,8 +8,14 @@
 	let success = '';
 
 	type LoginResponse = {
-		token?: string;
-		role?: string;
+		accessToken?: string;
+		refreshToken?: string;
+		user?: {
+			id: number;
+			username: string;
+			email: string;
+			role: string;
+		};
 		error?: string;
 	};
 
@@ -21,8 +27,8 @@
 
 		if (res.error) {
 			error = res.error;
-		} else if (res.token) {
-			localStorage.setItem('authix_token', res.token);
+		} else if (res.accessToken && res.user) {
+			localStorage.setItem('access_token', res.accessToken);
 			success = 'Login successful! Redirecting...';
 			setTimeout(() => goto('/me'), 1000);
 		} else {
