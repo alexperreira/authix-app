@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { addMinutes } from 'date-fns';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/client';
@@ -172,7 +174,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 
 
 
-export const requestPasswordReset = async (req: Request, res: Response) => {
+export const requestPasswordReset = async (req: Request, res: Response): Promise<void> => {
     const { email } = req.body;
 
     if (!email) {
@@ -180,56 +182,77 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
         return;
     }
 
-    // Insecure: we generate a fake token and just return it instead of emailing
-    const fakeResetToken = 'reset-token-12345';
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    console.log(`Password reset requested for ${email}`);
-
-    await prisma.log.create({
-        data: {
-            event: `Password reset requested for email: ${email}`,
-        },
-    });
-
-    res.json({ message: 'Password reset token generated', resetToken: fakeResetToken });
-};
-
-export const resetPassword = async (req: Request, res: Response) => {
-    const { token, newPassword } = req.body;
-
-    if (token !== 'reset-token-12345') {
-        res.status(400).json({ error: 'Invalid or expired reset token' });
+    if (!user) {
+        res.status(404).json({ error: 'No user with that email' });
         return;
     }
 
-    try {
-        const user = await prisma.user.findFirst(); // Insecure: resets password for first user
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = addMinutes(new Date(), 15);
 
-        if (!user) {
-            res.status(404).json({ error: 'No user found to reset password' });
-            return;
-        }
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            resetToken: token,
+            resetTokenExpires: expires,
+        },
+    });
 
-        const updated = await prisma.user.update({
-            where: { id: user.id },
-            data: { password: newPassword },
-        });
+    await prisma.log.create({
+        data: {
+            event: `Password reset requested for email: ${email}.`,
+        },
+    });
 
-        await prisma.log.create({
-            data: {
-                event: `Password reset for user: ${user.username}`,
-            },
-        });
-
-        res.json({ message: 'Password reset successful', user: updated });
-    } catch (error) {
-        console.error('Reset password error:', error);
-        // res.status(500).json({ error: 'Failed to reset password', details: (error as any).message });
-        res.status(401).json({ error: 'Failed to reset password.', details: error });
-    }
+    res.json({
+        message: 'Password reset link generated',
+        resetToken: token,
+    });
 };
 
-export const listUsers = async (req: Request, res: Response) => {
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+   try {
+        const { token, newPassword } = req.body;
+
+        const user = await prisma.user.findFirst({
+            where: {
+                resetToken: token,
+                resetTokenExpires: { gt: new Date() },
+            },
+    });
+
+    if (!user) {
+        res.status(400).json({ error: 'Invalid or expired reset token.' });
+        return;
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: {
+            password: hashedPassword,
+            resetToken: null,
+            resetTokenExpires: null,
+        },
+    });
+
+    await prisma.log.create({
+        data: {
+            event: `Password reset for user: ${user.username}`,
+        },
+    });
+
+    res.json({ message: 'Password reset successful.' });
+   } catch (error) {
+        console.error('Reset password error: ', error);
+        res.status(500).json({ error: 'Failed to reset password.' });
+   };
+};
+
+export const listUsers = async (req: Request, res: Response): Promise<void> => {
     try {
         const users = await prisma.user.findMany();
         res.json({ users });
@@ -239,7 +262,7 @@ export const listUsers = async (req: Request, res: Response) => {
     }
 };
 
-export const listLogs = async (req: Request, res: Response) => {
+export const listLogs = async (req: Request, res: Response): Promise<void> => {
     try {
         const logs = await prisma.log.findMany({ orderBy: { createdAt: 'desc'} });
         res.json({ logs });
@@ -249,3 +272,24 @@ export const listLogs = async (req: Request, res: Response) => {
         res.status(401).json({ error: 'Failed to fetch logs.', details: error });
     }
 };
+
+export const logoutUser = async (req: Request, res: Response): Promise<void> => {
+    const { token } = req.body;
+
+    if (!token) {
+        res.status(400).json({ error: 'Refresh token is required for logout.' });
+        return;
+    }
+
+    try {
+        await prisma.refreshToken.delete({
+            where: { token },
+        });
+
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(400).json({ error: 'Token not found or already invalidated' });
+    }
+
+}

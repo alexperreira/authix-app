@@ -15,14 +15,16 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  username      String         @unique
-  email         String         @unique
-  password      String
-  role          String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  refreshTokens RefreshToken[]
+  id                Int            @id @default(autoincrement())
+  username          String         @unique
+  email             String         @unique
+  password          String
+  role              String
+  resetToken        String?
+  resetTokenExpires DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  refreshTokens     RefreshToken[]
 }
 
 model Log {
