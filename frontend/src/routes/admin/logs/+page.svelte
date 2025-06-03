@@ -12,7 +12,7 @@
 	let error = '';
 
 	onMount(async () => {
-		const token = localStorage.getItem('authix_token') || '';
+		const token = localStorage.getItem('access_token') || '';
 		const res = (await apiGet('/auth/admin/logs', token)) as { logs?: Log[]; error?: string };
 
 		if (res.logs) {
