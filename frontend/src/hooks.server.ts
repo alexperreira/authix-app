@@ -7,6 +7,8 @@ export const handle: Handle = async ({ event, resolve }) => {
         },
     });
 
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+
     response.headers.set(
         'Content-Security-Policy',
         [
