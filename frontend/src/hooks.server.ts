@@ -20,7 +20,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             "object-src 'none'",
             "base-uri 'self'",
             "frame-ancestors 'none'",
-            "font-src 'self' https: data:",
+            "font-src 'self'",
             "form-action 'self'",
             "script-src-attr 'none'",
             "upgrade-insecure-requests"
