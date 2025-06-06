@@ -25,7 +25,11 @@ app.use(
       connectSrc: ["'self'", 'http://localhost:5173'],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      frameAncestors: ["'none'"]
+      frameAncestors: ["'none'"],
+      fontSrc: ["'self'"],
+      formAction: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      upgradeInsecureRequests: [],
     },
   })
 );
@@ -41,6 +45,9 @@ app.use(
 // Middleware: Body parsing and cookies
 app.use(express.json());
 app.use(cookieParser());
+
+// Middleware: Serve static files
+app.use(express.static('static'));
 
 // Middleware: Rate limiting (global)
 const globalLimiter = rateLimit({
